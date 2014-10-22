@@ -1,6 +1,6 @@
 # Naegleria
 
-A brainfuck compiler written in PHP.
+A [brainfuck](http://esolangs.org/wiki/Brainfuck) compiler written in PHP.
 
 ![](doc/naegleria.png)
 
@@ -35,4 +35,4 @@ This is not (yet) an optimizing compiler.
 
 * Thanks to [@codeoracle](https://twitter.com/codeoracle) for the inspiration to pick up `gcc -S`.
 * Thanks to [@old_sound](https://twitter.com/old_sound) for coming up with the name and logo.
-* Thanks to [the Esolang wiki](http://esolangs.org/wiki/Brainfuck) for being a great resource.
+* Thanks to [the Esolang wiki](http://esolangs.org/) for being a great resource.
