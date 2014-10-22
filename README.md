@@ -35,5 +35,6 @@ This is not (yet) an optimizing compiler.
 
 * Thanks to [@nikita_ppv](https://twitter.com/nikita_ppv) for planting the idea a long time ago.
 * Thanks to [@codeoracle](https://twitter.com/codeoracle) for the inspiration to pick up `gcc -S`.
+* Thanks to [@dazzlog](https://twitter.com/dazzlog) for helping understand assembly.
 * Thanks to [@old_sound](https://twitter.com/old_sound) for coming up with the name and logo.
 * Thanks to [the Esolang wiki](http://esolangs.org/) for being a great resource.
