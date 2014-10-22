@@ -23,6 +23,10 @@ Targets 64-bit x86 on linux, specifically gcc.
 
 The compiler uses a fixed-size array of 4000 elements for the cells.
 
+## Performance
+
+It's assembly, so probably faster than C.
+
 ## Benchmarks
 
 Run your own.
