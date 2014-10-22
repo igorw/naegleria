@@ -19,6 +19,10 @@ You can use Naegleria to compile a brainfuck file into AT&T assembly. This can t
 
 Targets 64-bit x86 on linux, specifically gcc.
 
+## Limitations
+
+The compiler uses a fixed-size array of 4000 elements for the cells.
+
 ## Benchmarks
 
 Run your own.
