@@ -89,14 +89,14 @@ function parse($tokens) {
 }
 
 $template = <<<'EOF'
-    .comm   data,4000,32
+    .comm   tape,4000,32
     .globl  i
     .data
     .align 8
     .type   i, @object
     .size   i, 8
 i:
-    .quad   data
+    .quad   tape
     .section    .rodata
 
 .stty:
@@ -118,7 +118,7 @@ main:
 
     movl    $4000, %edx
     movl    $0, %esi
-    movl    $data, %edi
+    movl    $tape, %edi
     call    memset
 
 $code
