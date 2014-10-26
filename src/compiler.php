@@ -116,11 +116,6 @@ main:
     movl    $.stty, %edi
     call    system
 
-    movl    $4000, %edx
-    movl    $0, %esi
-    movl    $tape, %edi
-    call    memset
-
 $code
     movl    $0, %eax
     popq    %rbp
