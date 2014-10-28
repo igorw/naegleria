@@ -2,51 +2,168 @@
 
 namespace igorw\naegleria;
 
-if ($argc <= 1) {
-    echo "Usage: compile filename.b\n";
-    exit(1);
+function tokenize($input) {
+    $tokens = str_split($input);
+    $tokens = array_values(array_filter($tokens, function ($token) {
+        return in_array($token, ['>', '<', '+', '-', '.', ',', '[', ']'], true);
+    }));
+    return $tokens;
 }
 
-$filename = $argv[1];
-
-$tokens = str_split(file_get_contents($filename));
-$tokens = array_values(array_filter($tokens, function ($token) {
-    return in_array($token, ['>', '<', '+', '-', '.', ',', '[', ']'], true);
-}));
-
 function parse($tokens) {
-    $condId = 0;
-    $loopId = 0;
-    $loopStack = [];
-    foreach ($tokens as $token) {
+    $i = 0;
+    while ($i < count($tokens)) {
+        $token = $tokens[$i];
+        $i++;
+
         switch ($token) {
             case '>';
-                yield ' # >';
-                yield ' movq    i(%rip), %rax';
-                yield ' addq    $1, %rax';
-                yield ' movq    %rax, i(%rip)';
+                yield ['T_RIGHT', 1];
                 break;
             case '<';
-                yield ' # <';
-                yield ' movq    i(%rip), %rax';
-                yield ' subq    $1, %rax';
-                yield ' movq    %rax, i(%rip)';
+                yield ['T_LEFT', 1];
                 break;
             case '+';
+                yield ['T_INC', 1];
+                break;
+            case '-';
+                yield ['T_DEC', 1];
+                break;
+            case '.';
+                yield ['T_OUTPUT'];
+                break;
+            case ',';
+                yield ['T_INPUT'];
+                break;
+            case '[';
+                list($nodes, $i) = extract_loop($tokens, $i);
+                $subtree = parse($nodes);
+                yield ['T_LOOP', $subtree];
+                break;
+            case ']';
+                // noop
+                break;
+        }
+    }
+}
+
+function extract_loop($tokens, $i) {
+    $nodes = [];
+    $nesting = 1;
+    while ($nesting > 0) {
+        $token = $tokens[$i];
+        $i++;
+
+        if ('[' === $token) {
+            $nesting++;
+        } else if (']' === $token) {
+            $nesting--;
+        }
+
+        if ($nesting > 0) {
+            $nodes[] = $token;
+        }
+    }
+    return [$nodes, $i];
+}
+
+function optimize($ast) {
+    return optimize_compact($ast);
+}
+
+function optimize_compact($ast) {
+    $accNode = null;
+    foreach (pairwise($ast) as list($node, $next)) {
+        $type = $node[0];
+
+        if ($type === 'T_LOOP') {
+            yield ['T_LOOP', optimize_compact($node[1])];
+            $accNode = null;
+            continue;
+        }
+
+        $compactable = in_array($type, ['T_RIGHT', 'T_LEFT', 'T_INC', 'T_DEC'], true);
+
+        if ($compactable && $next && $next[0] === $type) {
+            $accNode = $accNode ? [$type, $accNode[1] + $node[1]] : $node;
+            continue;
+        }
+
+        if ($accNode && $accNode[0] === $type) {
+            yield [$type, $accNode[1] + $node[1]];
+            $accNode = null;
+            continue;
+        }
+
+        if ($accNode) {
+            yield $accNode;
+            $accNode = null;
+        }
+
+        yield $node;
+    }
+}
+
+function pairwise($gen) {
+    $prev = null;
+    foreach ($gen as $item) {
+        if (!$prev) {
+            $prev = $item;
+            continue;
+        }
+        yield [$prev, $item];
+        $prev = $item;
+    }
+    if ($prev) {
+        yield [$prev, null];
+    }
+}
+
+function force($gen) {
+    $data = [];
+    foreach ($gen as $item) {
+        if ($item instanceof \Traversable || is_array($item)) {
+            $data[] = force($item);
+            continue;
+        }
+        $data[] = $item;
+    }
+    return $data;
+}
+
+function compile($ast, $prefix = '') {
+    $condId = 0;
+    $loopId = 0;
+    foreach ($ast as $node) {
+        $type = $node[0];
+        switch ($type) {
+            case 'T_RIGHT';
+                yield ' # >';
+                yield ' movq    i(%rip), %rax';
+                yield ' addq    $'.$node[1].', %rax';
+                yield ' movq    %rax, i(%rip)';
+                break;
+            case 'T_LEFT';
+                yield ' # <';
+                yield ' movq    i(%rip), %rax';
+                yield ' subq    $'.$node[1].', %rax';
+                yield ' movq    %rax, i(%rip)';
+                break;
+            case 'T_INC';
                 yield ' # +';
                 yield ' movq    i(%rip), %rax';
                 yield ' movzbl  (%rax), %edx';
-                yield ' addl    $1, %edx';
+                yield ' addl    $'.$node[1].', %edx';
                 yield ' movb    %dl, (%rax)';
                 break;
-            case '-';
+            case 'T_DEC';
                 yield ' # -';
                 yield ' movq    i(%rip), %rax';
                 yield ' movzbl  (%rax), %edx';
-                yield ' subl    $1, %edx';
+                yield ' subl    $'.$node[1].', %edx';
                 yield ' movb    %dl, (%rax)';
                 break;
-            case '.';
+            case 'T_OUTPUT';
                 yield ' # .';
                 yield ' movq    i(%rip), %rax';
                 yield ' movzbl  (%rax), %eax';
@@ -54,7 +171,7 @@ function parse($tokens) {
                 yield ' movl    %eax, %edi';
                 yield ' call    putchar';
                 break;
-            case ',';
+            case 'T_INPUT';
                 $condId++;
                 yield ' # ,';
                 yield ' movq    i(%rip), %rbx';
@@ -63,26 +180,25 @@ function parse($tokens) {
                 yield ' movq    i(%rip), %rax';
                 yield ' movzbl  (%rax), %eax';
                 yield ' cmpb    $4, %al';
-                yield " jne .cond$condId";
+                yield " jne .cond$prefix$condId";
                 yield ' movq    i(%rip), %rax';
                 yield ' movb    $0, (%rax)';
-                yield ".cond$condId:";
+                yield ".cond$prefix$condId:";
                 break;
-            case '[';
+            case 'T_LOOP';
                 $loopId++;
-                $loopStack[] = $loopId;
                 yield ' # [';
-                yield ".loops$loopId:";
+                yield ".loops$prefix$loopId:";
                 yield ' movq    i(%rip), %rax';
                 yield ' movzbl  (%rax), %eax';
                 yield ' cmpb    $0, %al';
-                yield " je  .loope$loopId";
-                break;
-            case ']';
-                $endLoopId = array_pop($loopStack);
+                yield " je  .loope$prefix$loopId";
+                foreach (compile($node[1], $loopId.'_') as $instr) {
+                    yield $instr;
+                }
                 yield ' # ]';
-                yield " jmp .loops$endLoopId";
-                yield ".loope$endLoopId:";
+                yield " jmp .loops$prefix$loopId";
+                yield ".loope$prefix$loopId:";
                 break;
         }
     }
@@ -124,8 +240,18 @@ $code
     .cfi_endproc
 EOF;
 
+if ($argc <= 1) {
+    echo "Usage: compile filename.b\n";
+    exit(1);
+}
+
+$filename = $argv[1];
+$tokens = tokenize(file_get_contents($filename));
+$ast = parse($tokens);
+$ast = optimize($ast);
+
 $code = '';
-foreach (parse($tokens) as $instr) {
+foreach (compile($ast) as $instr) {
     $code .= $instr."\n";
 }
 echo str_replace('$code', $code, $template);
