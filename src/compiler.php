@@ -77,8 +77,11 @@ function optimize_compact($ast) {
         $type = $node[0];
 
         if ($type === 'T_LOOP') {
+            if ($accNode) {
+                yield $accNode;
+                $accNode = null;
+            }
             yield ['T_LOOP', optimize_compact($node[1])];
-            $accNode = null;
             continue;
         }
 
