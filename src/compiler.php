@@ -193,7 +193,7 @@ function compile($ast, $prefix = '') {
                 yield ' movzbl  (%rax), %eax';
                 yield ' cmpb    $0, %al';
                 yield " je  .loope$prefix$loopId";
-                foreach (compile($node[1], $loopId.'_') as $instr) {
+                foreach (compile($node[1], $prefix.$loopId.'_') as $instr) {
                     yield $instr;
                 }
                 yield ' # ]';
