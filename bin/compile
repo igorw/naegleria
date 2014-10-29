@@ -1,3 +1,21 @@
-#!/bin/bash
+#!/usr/bin/env php
+<?php
 
-/usr/bin/env php src/compiler.php "$@"
+namespace igorw\naegleria;
+
+require __DIR__.'/../src/compiler.php';
+
+if ($argc <= 1) {
+    echo "Usage: compile filename.b\n";
+    exit(1);
+}
+
+$filename = $argv[1];
+$code = file_get_contents($filename);
+
+$tokens = tokenize($code);
+$asm = '';
+foreach (compile($tokens) as $instr) {
+    $asm .= $instr."\n";
+}
+echo template($asm);

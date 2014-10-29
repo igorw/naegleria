@@ -2,19 +2,15 @@
 
 namespace igorw\naegleria;
 
-if ($argc <= 1) {
-    echo "Usage: compile filename.b\n";
-    exit(1);
+function tokenize($code) {
+    $tokens = str_split($code);
+    $tokens = array_values(array_filter($tokens, function ($token) {
+        return in_array($token, ['>', '<', '+', '-', '.', ',', '[', ']'], true);
+    }));
+    return $tokens;
 }
 
-$filename = $argv[1];
-
-$tokens = str_split(file_get_contents($filename));
-$tokens = array_values(array_filter($tokens, function ($token) {
-    return in_array($token, ['>', '<', '+', '-', '.', ',', '[', ']'], true);
-}));
-
-function parse($tokens) {
+function compile($tokens) {
     $condId = 0;
     $loopId = 0;
     $loopStack = [];
@@ -88,7 +84,7 @@ function parse($tokens) {
     }
 }
 
-$template = <<<'EOF'
+const TEMPLATE = <<<'EOF'
     .comm   tape,4000,32
     .globl  i
     .data
@@ -116,17 +112,15 @@ main:
     movl    $.stty, %edi
     call    system
 
-$code
+$asm
     movl    $0, %eax
     popq    %rbp
     .cfi_def_cfa 7, 8
     ret
     .cfi_endproc
+
 EOF;
 
-$code = '';
-foreach (parse($tokens) as $instr) {
-    $code .= $instr."\n";
+function template($asm) {
+    return str_replace('$asm', $asm, TEMPLATE);
 }
-echo str_replace('$code', $code, $template);
-echo "\n";
